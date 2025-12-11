@@ -36,6 +36,12 @@ module Top(
     //------------------------------------------------------------
     // Heart Sprite
     //------------------------------------------------------------
+    wire [9:0] lane1_y, lane2_y, lane3_y;
+    wire on_platform;
+    wire [1:0] platform_idx;
+    wire [2:0] six_counter;
+    wire clk_sec;
+    
     wire heart_sprite_on;
     wire [7:0] heart_data;
 
@@ -100,8 +106,7 @@ module Top(
     );
     
     wire platform_sprite_on;
-    wire [7:0]
-    wire [9:0] lane1_y, lane2_y, lane3_y;
+    wire [7:0] platform_data;
     platform_sprite Psprite (
         .i_pix_clk(pix_clk),
         .i_tick(clk_sec),    // 1Hz or your game tick (for subtle bob)
@@ -114,9 +119,7 @@ module Top(
         .lane_y3(lane3_y)
     );
     
-    wire on_platform;
-    wire [1:0] platform_idx;
-    
+
     platform_collision Pcol (
         .clk(pix_clk),
         .reset(RESET),
@@ -177,9 +180,12 @@ module Top(
                 BLUE  <= palette[heart_data*3+2] >> 4;
             end
             else if (platform_sprite_on) begin
-                RED   <= palette[heart_data*3]   >> 4;
-                GREEN <= palette[heart_data*3+1] >> 4;
-                BLUE  <= palette[heart_data*3+2] >> 4;
+                RED   <= palette[63*3]   >> 4;
+                GREEN <= palette[63*3+1] >> 4;
+                BLUE  <= palette[63*3+2] >> 4;
+//                RED   <= palette[platform_data*3]   >> 4;
+//                GREEN <= palette[platform_data*3+1] >> 4;
+//                BLUE  <= palette[platform_data*3+2] >> 4;
             end
             else begin
                 RED   <= palette[COL*3]   >> 4;
@@ -197,9 +203,7 @@ module Top(
     //------------------------------------------------------------
     // Clock divider + Random gen
     //------------------------------------------------------------
-    wire clk_sec;
-    wire [2:0] six_counter;
-
+   
     clk_div_player_control cts(
         .rst_ni(RESET),
         .clk_i(CLK),

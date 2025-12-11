@@ -30,12 +30,12 @@ module platform_sprite(
     localparam TILE_H = 16;
 
     // Bobbing animation
-    reg [2:0] bob_counter = 0;
-    wire [1:0] bob_phase = bob_counter[2:1]; // 0..3 px
+//    reg [2:0] bob_counter = 0;
+//    wire [1:0] bob_phase = bob_counter[2:1]; // 0..3 px
 
-    always @(posedge i_pix_clk)
-        if (i_tick)
-            bob_counter <= bob_counter + 1;
+//    always @(posedge i_pix_clk)
+//        if (i_tick)
+//            bob_counter <= bob_counter + 1;
 
     // Compute top Y for each lane
     wire [9:0] base_y1 = ROW1 - (TILE_H >> 1);
@@ -60,9 +60,13 @@ module platform_sprite(
     always @(*) begin
         o_sprite_on = 0;
 
-        lane_y1 = base_y1 + bob_phase;
-        lane_y2 = base_y2 + bob_phase;
-        lane_y3 = base_y3 + bob_phase;
+//        lane_y1 = base_y1 + bob_phase;
+//        lane_y2 = base_y2 + bob_phase;
+//        lane_y3 = base_y3 + bob_phase;
+        
+        lane_y1 = base_y1;
+        lane_y2 = base_y2;
+        lane_y3 = base_y3;
 
         rom_addr = 12'd0;
 

@@ -4,7 +4,7 @@ module GasterBlasterRom(
     output reg  [7:0]  o_data
 );
 
-    // 30 × 40 = 1200 entries
+    // 30 x 40 = 1200 entries
     (* ROM_STYLE="block" *)
     reg [7:0] memory_array [0:1199];
 

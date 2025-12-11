@@ -12,6 +12,7 @@ module gaster_blaster(
     output wire       o_hit
 );
 
+    // Dimension of gaster blaster sprite
     localparam HEAD_W = 30;
     localparam HEAD_H = 40;
 
@@ -23,11 +24,11 @@ module gaster_blaster(
     localparam THICK  = 6;
 
     // Play area
-    localparam PLAY_LEFT   = LEFT   + THICK;
-    localparam PLAY_RIGHT  = RIGHT  - THICK;
+    localparam PLAY_LEFT   = LEFT + THICK;
+    localparam PLAY_RIGHT  = RIGHT - THICK;
 
     //Beam parameter
-    localparam BEAM_THICK = 12;      // ? slightly thicker so oval looks better
+    localparam BEAM_THICK = 12; // ? slightly thicker so oval looks better
     localparam SHOT_TICK  = 2;
 
     // Spawn points
@@ -39,7 +40,7 @@ module gaster_blaster(
     localparam ROW2 = 304;
     localparam ROW3 = 355;
 
-    reg [9:0] gx, gy;
+    reg [9:0] gx, gy; // Position of gaster
     reg       is_left_glance;
 
     reg [7:0] shot_timer;
@@ -58,10 +59,10 @@ module gaster_blaster(
     // SPAWN & SHOT TIMER
     //------------------------------------------------------------
     always @(posedge i_pix_clk) begin
-        if (spawn_rising && ~o_shot_active) begin
-            latched_idx <= six_counter;
-            shot_timer  <= SHOT_TICK;
-            o_shot_active <= 1'b1;
+        // if (spawn_rising && ~o_shot_active) begin
+        //     latched_idx <= six_counter;
+        //     shot_timer  <= SHOT_TICK;
+        //     o_shot_active <= 1'b1;
 
             case (six_counter)
                 3'd1: begin gy <= ROW1; gx <= SPAWN_LEFT;  is_left_glance <= 1'b0; end
@@ -72,86 +73,105 @@ module gaster_blaster(
                 3'd6: begin gy <= ROW3; gx <= SPAWN_RIGHT; is_left_glance <= 1'b1; end
                 default: begin gy <= ROW1; gx <= SPAWN_LEFT; is_left_glance <= 1'b0; end
             endcase
-        end
-        else if (spawn_rising && o_shot_active) begin
-            if (shot_timer > 0)
-                shot_timer <= shot_timer - 1;
-
-            if (shot_timer <= 1)
-                o_shot_active <= 1'b0;
-        end
+        // end
+        // else if (spawn_rising && o_shot_active) begin
+        //     if (shot_timer > 0)
+        //         shot_timer <= shot_timer - 1;
+        //
+        //     if (shot_timer <= 1)
+        //         o_shot_active <= 1'b0;
+        // end
     end
 
     //------------------------------------------------------------
     // BEAM GEOMETRY
     //------------------------------------------------------------
-    wire [9:0] beam_x1 = is_left_glance ? (gx + HEAD_W) : PLAY_LEFT;
-    wire [9:0] beam_x2 = is_left_glance ? PLAY_RIGHT     : (gx - 1);
-
-    wire [9:0] beam_yc = gy + (HEAD_H >> 1);
-    wire [9:0] beam_y1 = beam_yc - (BEAM_THICK >> 1);
-    wire [9:0] beam_y2 = beam_y1 + BEAM_THICK - 1;
+    // wire [9:0] beam_x1 = is_left_glance ? (gx + HEAD_W) : PLAY_LEFT;
+    // wire [9:0] beam_x2 = is_left_glance ? PLAY_RIGHT     : (gx - 1);
+    //
+    // wire [9:0] beam_yc = gy + (HEAD_H >> 1);
+    // wire [9:0] beam_y1 = beam_yc - (BEAM_THICK >> 1);
+    // wire [9:0] beam_y2 = beam_y1 + BEAM_THICK - 1;
 
     //------------------------------------------------------------
     // DRAW HEAD + BEAM (rectangular draw only)
     //------------------------------------------------------------
-    wire inside_head =
-        (pixel_x >= gx) && (pixel_x < gx + HEAD_W) &&
-        (pixel_y >= gy) && (pixel_y < gy + HEAD_H);
+    wire inside_head = // Normally it should be pixel_x >= gx, but there's artifact, IDK why
+        (pixel_x > gx) && (pixel_x < gx + HEAD_H) &&
+        (pixel_y >= gy) && (pixel_y < gy + HEAD_W);
 
-    wire inside_beam =
-        o_shot_active &&
-        (pixel_x >= beam_x1) && (pixel_x <= beam_x2) &&
-        (pixel_y >= beam_y1) && (pixel_y <= beam_y2);
+    // wire inside_beam =
+    //     o_shot_active &&
+    //     (pixel_x >= beam_x1) && (pixel_x <= beam_x2) &&
+    //     (pixel_y >= beam_y1) && (pixel_y <= beam_y2);
 
     //------------------------------------------------------------
     // ROM PIXEL FETCH (NO ROTATION)
     //------------------------------------------------------------
-    wire [9:0] lx = pixel_x - gx;
-    wire [9:0] ly = pixel_y - gy;
+    // wire [9:0] lx = pixel_x - gx;
+    // wire [9:0] ly = pixel_y - gy;
 
-    wire [11:0] address = ly * HEAD_W + lx;
+    // wire [11:0] address = ly * HEAD_W + lx;
 
+    // = (pixel_y - gy)*W + (pixel_x - gx)
+    reg [11:0] address;
+    reg [11:0] lx, ly; // Local sprite coordinates
+    
+    always @(*) begin
+        lx = pixel_x - gx;
+        ly = pixel_y - gy;
+    
+        if (is_left_glance) begin
+            // +90 deg rotate
+            address = (HEAD_H-lx-1)*HEAD_W + ly;
+        end else begin
+            // -90 deg rotate
+            address = (lx)*HEAD_W + ly;
+        end
+    end
+
+    // output "on/off"
+    always @(*) begin
+        o_sprite_on = inside_head && o_data != 8'h00;
+        // if (inside_head)
+        //     o_sprite_on = (o_data != 8'h00);
+        // else if (inside_beam)
+        //     o_sprite_on = 1'b1;
+        // else
+        //     o_sprite_on = 1'b0;
+    end
+    
     GasterBlasterRom Grom (
         .i_addr(address),
         .i_pix_clk(i_pix_clk),
         .o_data(o_data)
     );
 
-    always @(*) begin
-        if (inside_head)
-            o_sprite_on = (o_data != 8'h00);
-        else if (inside_beam)
-            o_sprite_on = 1'b1;
-        else
-            o_sprite_on = 1'b0;
-    end
-
     //------------------------------------------------------------
     // OVAL HITBOX COLLISION
     //------------------------------------------------------------
     // Oval center
-    wire [10:0] cx = (beam_x1 + beam_x2) >> 1;
-    wire [10:0] cy = beam_yc;
+    // wire [10:0] cx = (beam_x1 + beam_x2) >> 1;
+    // wire [10:0] cy = beam_yc;
 
     // Radii
-    wire [10:0] a = (beam_x2 - beam_x1) >> 1;   // horizontal radius
-    wire [10:0] b = BEAM_THICK >> 1;            // vertical radius
+    // wire [10:0] a = (beam_x2 - beam_x1) >> 1;   // horizontal radius
+    // wire [10:0] b = BEAM_THICK >> 1;            // vertical radius
 
     // ? positions
-    wire signed [11:0] dx = heart_x - cx;
-    wire signed [11:0] dy = heart_y - cy;
+    // wire signed [11:0] dx = heart_x - cx;
+    // wire signed [11:0] dy = heart_y - cy;
 
     // Compare:
-    //   dx² * b² + dy² * a² <= (a² * b²)
-    wire [21:0] dx2 = dx * dx;
-    wire [21:0] dy2 = dy * dy;
-    wire [21:0] a2  = a  * a;
-    wire [21:0] b2  = b  * b;
+    //   dx2 * b2 + dy2 * a2 <= (a2 * b2)
+    // wire [21:0] dx2 = dx * dx;
+    // wire [21:0] dy2 = dy * dy;
+    // wire [21:0] a2  = a * a;
+    // wire [21:0] b2  = b * b;
 
-    wire [43:0] left_side  = dx2 * b2 + dy2 * a2;
-    wire [43:0] right_side = a2 * b2;
-
-    assign o_hit = o_shot_active && (left_side <= right_side);
+    // wire [43:0] left_side  = dx2 * b2 + dy2 * a2;
+    // wire [43:0] right_side = a2 * b2;
+    
+    // assign o_hit = o_shot_active && (left_side <= right_side);
 
 endmodule

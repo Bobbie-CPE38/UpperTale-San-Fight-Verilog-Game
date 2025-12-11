@@ -165,14 +165,14 @@ module Top(
                 BLUE <= 4'h0;
             end
             else if (gaster_sprite_on) begin
-                RED   <= palette[gaster_data*3]   >> 4;
-                GREEN <= palette[gaster_data*3+1] >> 4;
-                BLUE  <= palette[gaster_data*3+2] >> 4;
+                 RED   <= palette[gaster_data*3]   >> 4;
+                 GREEN <= palette[gaster_data*3+1] >> 4;
+                 BLUE  <= palette[gaster_data*3+2] >> 4;
             end
             else if (ground_sprite_on) begin
-                RED   <= palette[GROUND*3]   >> 4;
-                GREEN <= palette[GROUND*3+1] >> 4;
-                BLUE  <= palette[GROUND*3+2] >> 4;
+                RED   <= 15;
+                GREEN <= 15;
+                BLUE  <= 15;
             end
             else if (heart_sprite_on) begin
                 RED   <= palette[heart_data*3]   >> 4;
@@ -189,7 +189,7 @@ module Top(
             end
             else begin
                 RED   <= palette[COL*3]   >> 4;
-                GREEN <= palette[COL*3+1] >> 4;
+                GREEN <= 15;
                 BLUE  <= palette[COL*3+2] >> 4;
             end
 

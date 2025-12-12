@@ -38,6 +38,11 @@ module GasterBlasterSprite(
 
     reg [7:0] shot_timer;
     reg [2:0] latched_idx;
+    
+    // Check if x, y is in head area
+    wire inside_head = // Normally it should be pixel_x >= gx, but there's artifact, IDK why
+        (pixel_x > gx) && (pixel_x < gx + HEAD_H) &&
+        (pixel_y >= gy) && (pixel_y < gy + HEAD_W);
 
     //------------------------------------------------------------
     // SPAWN & SHOT TIMER
@@ -53,13 +58,6 @@ module GasterBlasterSprite(
                 default: begin gy <= ROW1; gx <= SPAWN_LEFT; is_left_glance <= 1'b0; end
             endcase
     end
-    
-    //------------------------------------------------------------
-    // DRAW HEAD + BEAM (rectangular draw only)
-    //------------------------------------------------------------
-    wire inside_head = // Normally it should be pixel_x >= gx, but there's artifact, IDK why
-        (pixel_x > gx) && (pixel_x < gx + HEAD_H) &&
-        (pixel_y >= gy) && (pixel_y < gy + HEAD_W);
         
     //------------------------------------------------------------
     // ROM PIXEL FETCH (NO ROTATION)

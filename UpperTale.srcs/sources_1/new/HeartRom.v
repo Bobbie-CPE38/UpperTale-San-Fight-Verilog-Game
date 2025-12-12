@@ -4,8 +4,8 @@ module HeartRom(
     output reg [7:0] o_data    
     );
     
-    (*ROM_STYLE="block"*) reg [7:0] memory_array [0:1199];   
-    // 30x40 = 1200
+    (*ROM_STYLE="block"*) reg [7:0] memory_array [0:575];   
+    // 24x24 = 576
 
     initial begin
         $readmemh("Undertale.mem", memory_array);
@@ -13,4 +13,5 @@ module HeartRom(
     
     always @(posedge i_pix_clk)
         o_data <= memory_array[i_addr];
+//            o_data <= 8;
 endmodule

@@ -15,13 +15,22 @@ module Top(
  );
 
     // VGA Controller
-    wire [9:0] x;
-    wire [9:0] y;
-    wire active;
-    wire pix_clk;
+    wire [9:0] x; // pixel x position: 10-bit value: 0-1023 : only need 800
+    wire [9:0] y; // pixel y position: 10-bit value: 0-1023 : only need 525
+    wire active; // high during active pixel drawing
+    wire pix_clk; // 25MHz pixel clock
     
     // Color palette
     reg [7:0] palette [0:191];
+    wire [7:0] palette_data;
+    wire [7:0] palette_addr;
+    wire palette_done;
+    reg init_done;
+    
+    // Color define
+    reg [7:0] COL = 0; // background colour palette value
+    reg [7:0] GROUND = 63;
+    
     
     // Platforms
     wire [9:0] platforms_y0; // 2 platforms
@@ -114,15 +123,21 @@ module Top(
         .o_data(platform_data)
     );
 
-    // Read color palette
-    always @(*) begin
-        if (RESET) begin
-            $readmemh("pal24bit.mem", palette);
+    ColorPaletteRom palette_rom (
+        .i_pix_clk(pix_clk),
+        .i_rst(RESET),
+        .o_data(palette_data),
+        .o_addr(palette_addr),
+        .o_done(palette_done)
+    );
+
+    // Fill local palette at startup
+    always @(posedge pix_clk) begin
+        if (!init_done) begin
+            palette[palette_addr] <= palette_data;
+            if (palette_done)
+                init_done <= 1;
         end
-    end
-    
-    initial begin
-        $readmemh("pal24bit.mem", palette);
     end
 
     //------------------------------------------------------------
@@ -143,14 +158,17 @@ module Top(
 //            end
 //            else 
             if (gaster_sprite_on) begin
+//                RED   <= 15;
+//                GREEN <= 0;
+//                BLUE  <= 0;
                 RED   <= palette[gaster_data*3]   >> 4;
                 GREEN <= palette[gaster_data*3+1] >> 4;
                 BLUE  <= palette[gaster_data*3+2] >> 4;
             end
             else if (blaster_laser_sprite_on) begin
-                RED   <= palette[blaster_laser_data*3]   >> 4;
-                GREEN <= palette[blaster_laser_data*3+1] >> 4;
-                BLUE  <= palette[blaster_laser_data*3+2] >> 4;
+                RED   <= (palette[blaster_laser_data*3])   >> 4;
+                GREEN <= (palette[blaster_laser_data*3+1]) >> 4;
+                BLUE  <= (palette[blaster_laser_data*3+2]) >> 4;
             end
             else if (ground_sprite_on) begin
                 RED   <= 15;
@@ -158,27 +176,29 @@ module Top(
                 BLUE  <= 15;
             end
             else if (heart_sprite_on) begin
-                RED   <= palette[heart_data*3]   >> 4;
-                GREEN <= palette[heart_data*3+1] >> 4;
-                BLUE  <= palette[heart_data*3+2] >> 4;
+                RED   <= (palette[8*3]) >> 4;
+                GREEN <= (palette[8*3+1]) >> 4;
+                BLUE  <= (palette[8*3+2]) >> 4;
             end
             else if (platform_sprite_on) begin
-                RED   <= palette[63*3]   >> 4;
-                GREEN <= palette[63*3+1] >> 4;
-                BLUE  <= palette[63*3+2] >> 4;
-//                RED   <= palette[platform_data*3]   >> 4;
-//                GREEN <= palette[platform_data*3+1] >> 4;
-//                BLUE  <= palette[platform_data*3+2] >> 4;
+//                RED   <= (palette[63*3]) >> 4;
+//                GREEN <= (palette[63*3+1]) >> 4;
+//                BLUE  <= (palette[63*3+2]) >> 4;
+                RED   <= palette[platform_data*3]   >> 4;
+                GREEN <= palette[platform_data*3+1] >> 4;
+                BLUE  <= palette[platform_data*3+2] >> 4;
             end
             else begin
-                // RED   <= palette[COL*3]   >> 4;
-                RED   <= 0;
-                GREEN <= 15;
-                BLUE  <= 0;
-                // BLUE  <= palette[COL*3+2] >> 4;
+//                RED   <= 0;
+//                GREEN <= 15;
+//                BLUE  <= 0;
+                 RED   <= palette[COL*3]   >> 4;
+                 GREEN <= palette[COL*3+1] >> 4;
+                 BLUE  <= palette[COL*3+2] >> 4;
             end
 
-        end else begin
+        end 
+        else begin
             RED   <= 0;
             GREEN <= 0;
             BLUE  <= 0;

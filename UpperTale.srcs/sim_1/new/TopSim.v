@@ -48,15 +48,45 @@ module TopSim;
         $finish;
     end
     
+    
     reg [7:0] palette [0:191];
     wire active;
     
     assign active = dut.active;
     
-    initial begin
-        $readmemh("pal24bit.mem", palette);
-    end
+    wire [9:0] x;
+    wire [9:0] y;
     
+    assign x = dut.x;
+    assign y = dut.y;
+    
+    wire gaster_sprite_on;
+    wire [7:0] gaster_data;
+    assign gaster_sprite_on = dut.gaster_sprite_on;
+    assign gaster_data = dut.gaster_data;
+
+    // Blaster laser
+    wire blaster_laser_sprite_on;
+    wire [7:0] blaster_laser_data;
+    assign blaster_laser_sprite_on = dut.blaster_laser_sprite_on;
+    assign blaster_laser_data = dut.blaster_laser_data;
+
+    // Level/Ground
+    wire ground_sprite_on;
+    assign ground_sprite_on = dut.ground_sprite_on;
+
+    wire heart_sprite_on;
+    assign heart_sprite_on = dut.heart_sprite_on;
+
+    wire platform_sprite_on;
+    assign platform_sprite_on = dut.platform_sprite_on;
+        
+    wire inside_heart;
+    
+    assign inside_heart = dut.heart_sprite.inside_heart;
+    
+    wire [7:0] o_data;
+    assign o_data = dut.heart_sprite.o_data;
     
 //    wire [10-1:0] attack_i;
 //    wire [10-1:0] platform_i;

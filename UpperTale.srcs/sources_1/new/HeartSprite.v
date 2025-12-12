@@ -60,6 +60,9 @@ module HeartSprite #(
     localparam H_SPEED = 10; // Horizontal
     localparam V_SPEED = 10; // Vertical
     
+    wire inside_heart = (i_x >= heart_x) && (i_x < heart_x + HEART_WIDTH) &&
+                        (i_y >= heart_y) && (i_y < heart_y + HEART_HEIGHT);
+    
     integer i; // To use in for loop
     // ---------- Movement / gravity (sequential) ----------
     always @(posedge i_pix_clk or posedge i_rst) begin
@@ -105,19 +108,9 @@ module HeartSprite #(
 
     // Draw heart at current position
     always @(posedge i_pix_clk) begin
-        if (i_active) begin
-            // Check if x and y is in Heart area
-            if ((i_x >= heart_x) && (i_x < heart_x + HEART_WIDTH) &&
-                (i_y >= heart_y) && (i_y < heart_y + HEART_HEIGHT)) begin
-                address <= (i_x - heart_x) + ((i_y - heart_y) * HEART_WIDTH);
-                o_sprite_on <= 1'b1;
-            end
-            else begin
-                o_sprite_on <= 1'b0;
-            end
-        end
-        else begin
+        if (i_active)
+            o_sprite_on = inside_heart && o_data != 8'h00;
+        else
             o_sprite_on <= 1'b0;
-        end
     end
 endmodule

@@ -48,9 +48,14 @@ module TopSim;
         $finish;
     end
     
+    reg [7:0] palette [0:191];
     wire active;
     
     assign active = dut.active;
+    
+    initial begin
+        $readmemh("pal24bit.mem", palette);
+    end
     
     
 //    wire [10-1:0] attack_i;

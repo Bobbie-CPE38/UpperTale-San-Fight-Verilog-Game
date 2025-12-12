@@ -5,7 +5,7 @@ module HeartRom(
     );
     
     (*ROM_STYLE="block"*) reg [7:0] memory_array [0:1199];   
-    // 30×40 = 1200
+    // 30x40 = 1200
 
     initial begin
         $readmemh("Undertale.mem", memory_array);

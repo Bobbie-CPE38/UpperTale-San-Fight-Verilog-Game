@@ -19,7 +19,7 @@ module heart_collision(
     output reg         collided
 );
 
-    // Heart bounding box (Undertale heart = 24×24)
+    // Heart bounding box (Undertale heart = 24x24)
     localparam HEART_W = 24;
     localparam HEART_H = 24;
 

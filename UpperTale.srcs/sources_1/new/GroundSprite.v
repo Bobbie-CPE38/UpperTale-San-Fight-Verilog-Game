@@ -1,6 +1,4 @@
-`timescale 1ns / 1ps
-
-module level_display(
+module GroundSprite (
     input  wire [9:0] pixel_x,   // VGA pixel X (0 - 639)
     input  wire [9:0] pixel_y,   // VGA pixel Y (0 - 479)
     output reg        o_sprite_on

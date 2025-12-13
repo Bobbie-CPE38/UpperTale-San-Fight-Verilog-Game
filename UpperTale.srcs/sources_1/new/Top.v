@@ -16,7 +16,18 @@ module Top(
     wire [9:0] x; // pixel x position: 10-bit value: 0-1023 : only need 800
     wire [9:0] y; // pixel y position: 10-bit value: 0-1023 : only need 525
     wire active; // high during active pixel drawing
-    wire pix_clk; // 25MHz pixel clock
+    wire pix_clk; // 25 MHz pixel clock
+    
+    // Game state
+    localparam START = 2'b00;
+    localparam GAMEPLAY = 2'b01;
+    localparam END = 2'b10;
+    localparam READY_DELAY = 25_000_000 * 2; // 25 MHz * 2 sec
+    reg [25:0] ready_counter; // Count up to 50M
+    reg gameplay_active; // Start actual game
+    reg [1:0] state;
+    reg [1:0] state_d; // 1 clk delay of state
+    wire freeze_hazards = !gameplay_active; // In preparation stage, freeze everythig
     
     // Color palette
     reg [7:0] palette [0:191];
@@ -29,7 +40,6 @@ module Top(
     // Color define
     reg [7:0] BG = 0; // background colour palette value
     reg [7:0] GROUND = 63; // Playarea border color
-    
     
     // Platforms
     wire [9:0] platforms_x0;
@@ -53,6 +63,8 @@ module Top(
     wire heart_hit;
     
     // Health bar
+    wire [6:0] health;
+    wire refill_hp = (state == START) && (state_d != START);
     wire hp_bar_sprite_on;
     wire [7:0] hp_bar_data;
     
@@ -114,9 +126,11 @@ module Top(
     HealthBar hp_bar (
         .i_pix_clk(pix_clk),
         .i_rst(RESET),
+        .i_refill(refill_hp),
         .i_x(x),
         .i_y(y),
         .i_hit(heart_hit),
+        .o_health(health),
         .o_sprite_on(hp_bar_sprite_on),
         .o_data(hp_bar_data)
     );
@@ -135,6 +149,7 @@ module Top(
     BlasterLaserSprite blaster_laster_sprite (
         .i_pix_clk(pix_clk),
         .i_sec_clk(clk_sec),
+        .i_freeze(freeze_hazards),
         .pixel_x(x),
         .pixel_y(y),
         .six_counter(six_counter),
@@ -184,82 +199,7 @@ module Top(
         .o_addr(palette_addr),
         .o_done(palette_done)
     );
-
-    // Fill local palette at startup
-    always @(posedge pix_clk) begin
-        palette_addr_d <= palette_addr;
-        if (!init_done) begin
-            palette[palette_addr_d] <= palette_data;
-            if (palette_done)
-                init_done <= 1;
-        end
-    end
-
-    //------------------------------------------------------------
-    // RENDERING PRIORITY
-    // 1. Hit flash (red)
-    // 2. HP bar
-    // 3. Gaster Blaster
-    // 4. Ground
-    // 5. Heart
-    // 6. Platform
-    // 7. Laser
-    // 8. Background
-    //------------------------------------------------------------
-    always @ (posedge pix_clk) begin
-        if (active && init_done) begin
-//                RED   <= palette[8*3] >> 4;
-//                GREEN <= palette[8*3+1] >> 4;
-//                BLUE  <= palette[8*3+2] >> 4;
-            if (heart_hit) begin
-                RED <= 4'hF;
-                GREEN <= 4'h0;
-                BLUE <= 4'h0;
-            end
-            else if (hp_bar_sprite_on) begin
-                RED   <= palette[hp_bar_data*3]   >> 4;
-                GREEN <= palette[hp_bar_data*3+1] >> 4;
-                BLUE  <= palette[hp_bar_data*3+2] >> 4;
-            end
-            else if (gaster_sprite_on) begin
-                RED   <= palette[gaster_data*3]   >> 4;
-                GREEN <= palette[gaster_data*3+1] >> 4;
-                BLUE  <= palette[gaster_data*3+2] >> 4;
-            end
-            else if (ground_sprite_on) begin
-                RED   <= palette[GROUND*3]   >> 4;
-                GREEN <= palette[GROUND*3+1] >> 4;
-                BLUE  <= palette[GROUND*3+2] >> 4;
-            end
-            else if (heart_sprite_on) begin
-                RED   <= palette[heart_data*3]   >> 4;
-                GREEN <= palette[heart_data*3+1] >> 4;
-                BLUE  <= palette[heart_data*3+2] >> 4;
-            end
-            else if (platform_sprite_on) begin
-                // Temp color
-                RED   <= palette[57*3]   >> 4;
-                GREEN <= palette[57*3+1] >> 4;
-                BLUE  <= palette[57*3+2] >> 4;
-            end
-            else if (blaster_laser_sprite_on) begin
-                RED   <= palette[blaster_laser_data*3]   >> 4;
-                GREEN <= palette[blaster_laser_data*3+1] >> 4;
-                BLUE  <= palette[blaster_laser_data*3+2] >> 4;
-            end
-            else begin
-                 RED   <= palette[BG*3]   >> 4;
-                 GREEN <= palette[BG*3+1] >> 4;
-                 BLUE  <= palette[BG*3+2] >> 4;
-            end
-        end 
-        else begin
-            RED   <= 0;
-            GREEN <= 0;
-            BLUE  <= 0;
-        end
-    end
-
+    
     //------------------------------------------------------------
     // Clock divider + Random gen
     //------------------------------------------------------------
@@ -274,4 +214,143 @@ module Top(
         .enable(clk_sec),
         .rand_out(six_counter)
     );
+
+    // 1 clk delay
+    always @(posedge pix_clk or posedge RESET) begin
+        if (RESET)
+            state_d <= START;
+        else
+            state_d <= state;
+    end
+
+    // Fill local palette at startup
+    always @(posedge pix_clk) begin
+        palette_addr_d <= palette_addr;
+        if (!init_done) begin
+            palette[palette_addr_d] <= palette_data;
+            if (palette_done)
+                init_done <= 1;
+        end
+    end
+
+    // Game state logic
+    always @ (posedge pix_clk or posedge RESET) begin
+        if (RESET) begin
+            state <= START;
+            ready_counter <= 0;
+            gameplay_active <= 0;
+        end
+        else begin
+            case (state)
+                START: begin
+                    if (btn_u) begin
+                        state <= GAMEPLAY;
+                        ready_counter <= 0;
+                        gameplay_active <= 0;
+                    end
+                end
+                GAMEPLAY: begin
+                    if (!gameplay_active) begin
+                        if (ready_counter < READY_DELAY)
+                            ready_counter <= ready_counter + 1;
+                        else
+                            gameplay_active <= 1;
+                    end
+                    
+                    // End game wwhen player dies
+                    if (gameplay_active && health == 0)
+                        state <= END;
+                end
+                END: begin
+                    if (btn_u) state <= START;
+                end 
+            endcase
+        end
+    end
+        
+    //------------------------------------------------------------
+    // RENDERING PRIORITY
+    // 1. Hit flash (red)
+    // 2. HP bar
+    // 3. Gaster Blaster
+    // 4. Ground
+    // 5. Heart
+    // 6. Platform
+    // 7. Laser
+    // 8. Background
+    //------------------------------------------------------------
+    
+    // Rendering logic
+    always @(posedge pix_clk) begin    
+        if (active && init_done) begin
+            case (state)
+                START: begin
+                    // Temp
+                    RED   <= 4'h0;
+                    GREEN <= 4'hF;
+                    BLUE  <= 4'h0;
+                end
+                GAMEPLAY: begin
+                    // Temp readyoverlay
+                    if (!gameplay_active && x >= 300 && x <= 500 && y >= 200 && y <= 250) begin
+                        RED   <= 4'hF;
+                        GREEN <= 4'hF;
+                        BLUE  <= 4'hF;
+                    end
+                    else if (heart_hit) begin
+                        RED <= 4'hF;
+                        GREEN <= 4'h0;
+                        BLUE <= 4'h0;
+                    end
+                    else if (hp_bar_sprite_on) begin
+                        RED   <= palette[hp_bar_data*3]   >> 4;
+                        GREEN <= palette[hp_bar_data*3+1] >> 4;
+                        BLUE  <= palette[hp_bar_data*3+2] >> 4;
+                    end
+                    else if (gaster_sprite_on) begin
+                        RED   <= palette[gaster_data*3]   >> 4;
+                        GREEN <= palette[gaster_data*3+1] >> 4;
+                        BLUE  <= palette[gaster_data*3+2] >> 4;
+                    end
+                    else if (ground_sprite_on) begin
+                        RED   <= palette[GROUND*3]   >> 4;
+                        GREEN <= palette[GROUND*3+1] >> 4;
+                        BLUE  <= palette[GROUND*3+2] >> 4;
+                    end
+                    else if (heart_sprite_on) begin
+                        RED   <= palette[heart_data*3]   >> 4;
+                        GREEN <= palette[heart_data*3+1] >> 4;
+                        BLUE  <= palette[heart_data*3+2] >> 4;
+                    end
+                    else if (platform_sprite_on) begin
+                        // Temp color
+                        RED   <= palette[57*3]   >> 4;
+                        GREEN <= palette[57*3+1] >> 4;
+                        BLUE  <= palette[57*3+2] >> 4;
+                    end
+                    else if (blaster_laser_sprite_on) begin
+                        RED   <= palette[blaster_laser_data*3]   >> 4;
+                        GREEN <= palette[blaster_laser_data*3+1] >> 4;
+                        BLUE  <= palette[blaster_laser_data*3+2] >> 4;
+                    end
+                    else begin
+                         RED   <= palette[BG*3]   >> 4;
+                         GREEN <= palette[BG*3+1] >> 4;
+                         BLUE  <= palette[BG*3+2] >> 4;
+                    end
+                end
+                END: begin
+                    // Temp gameover screen
+                    RED   <= 4'hF;
+                    GREEN <= 4'h0;
+                    BLUE  <= 4'hF;
+                end
+            endcase
+        end 
+        else begin
+            RED   <= 0;
+            GREEN <= 0;
+            BLUE  <= 0;
+        end
+    end
 endmodule

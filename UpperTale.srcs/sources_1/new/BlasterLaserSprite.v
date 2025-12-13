@@ -1,6 +1,7 @@
 module BlasterLaserSprite(
     input wire       i_pix_clk, // 25 MHz clk
     input wire       i_sec_clk, // 1 Hz clk, use to deactivate laser
+    input wire       i_freeze,  // Don't shoot during preparation state
     input wire [9:0] pixel_x,
     input wire [9:0] pixel_y,
     input wire [2:0] six_counter,
@@ -22,6 +23,9 @@ module BlasterLaserSprite(
     localparam ROW1 = 257;
     localparam ROW2 = 303;
     localparam ROW3 = 350;
+    
+    // Delay before activating the laser
+    localparam integer LASER_DELAY = 20_000_000;
     
     // Current Y position of blaster laser
     reg [9:0] bl_y;
@@ -57,14 +61,24 @@ module BlasterLaserSprite(
     // Laser activation
     always @(posedge i_pix_clk) begin
         i_sec_clk_d <= i_sec_clk;
-        if (sec_rising) begin
+        
+        if (i_freeze) begin
             delay_counter <= 0;
-            o_active <= 0;  // start countdown
+            o_active <= 0;
         end
-        else if (delay_counter < 20_000_000)
+        else if (sec_rising) begin
+            // Start new cycle
+            delay_counter <= 0;
+            o_active <= 0;
+        end
+        else if (delay_counter < LASER_DELAY) begin
             delay_counter <= delay_counter + 1;
-        else
-            o_active <= 1;  // after 0.8s, activate
+            o_active <= 0;
+        end
+        else begin
+            o_active <= 1;
+            delay_counter <= LASER_DELAY; // hold the counter at max
+        end
     end
     
     // Draw laser blaster at current position

@@ -6,7 +6,9 @@ module PlatformSprite #(
     input  wire [9:0]  pixel_y,
     input  wire        i_active,
     output reg         o_sprite_on,
+    output reg [9:0]   o_platforms_x0,
     output reg [9:0]   o_platforms_y0,
+    output reg [9:0]   o_platforms_x1,
     output reg [9:0]   o_platforms_y1,
     output wire [7:0]  o_data
 );
@@ -18,51 +20,91 @@ module PlatformSprite #(
     localparam PLAY_LEFT  = LEFT + THICK; // Left edge of playable area: 136
     localparam PLAY_RIGHT = RIGHT - THICK;  // Right edge of playable area: 504
 
-    // Tile dimension
-    localparam TILE_W = 64;
-    localparam TILE_H = 16;
+    // Platform properties
+    localparam PLATFORM_W = 64;
+    localparam PLATFORM_H = 6;
+    localparam SPEED = 1;
 
     // --- ROM for 64x16 tile ---
     reg  [11:0] rom_addr = 0;
     
-    // Platforms Y positions
-    reg [9:0] ROWS [0:NUM_LANES-1];
-    // Init platforms Y position
-    initial begin
-        ROWS[0] = 287; // Top platform
-        ROWS[1] = 335; // Bottom platform
-    end
+    // Platforms
+    reg [9:0] platforms_x [0:NUM_LANES-1]; // x position of platform
+    reg [9:0] next_x; // temp next x position
+    reg [9:0] platforms_y [0:NUM_LANES-1]; // y position of platform
+    reg signed [9:0] platforms_vx [0:NUM_LANES-1]; // velocity of each platform
 
-    // Check if x position is in platform area
-    wire in_x_range = (pixel_x >= PLAY_LEFT) && (pixel_x <= PLAY_RIGHT);
-    
-    wire [6:0] tile_x = (pixel_x - PLAY_LEFT) % TILE_W;  // 0..63
-
+    // Read ROM
     platform_rom tile_rom (
         .i_addr(rom_addr),
         .i_pix_clk(i_pix_clk),
         .o_data(o_data)
     );
+    
+    // Init platform position
+    initial begin
+        platforms_x[0]   = PLAY_LEFT + 40;
+        platforms_y[0]   = 297;
+        platforms_vx[0]  = SPEED;
+
+        platforms_x[1]   = PLAY_LEFT + 200;
+        platforms_y[1]   = 345;
+        platforms_vx[1]  = -SPEED;
+    end
 
     integer i; // To use in for loop
-    // Output calculation
+    
+    // Movement
+    always @(posedge i_pix_clk) begin
+        if (pixel_x == 639 && pixel_y == 479) begin
+            for (i = 0; i < NUM_LANES; i = i + 1) begin
+                next_x = platforms_x[i] + platforms_vx[i];
+    
+                // Right boundary
+                if (next_x + PLATFORM_W >= PLAY_RIGHT) begin
+                    platforms_x[i]  <= PLAY_RIGHT - PLATFORM_W;
+                    platforms_vx[i] <= -SPEED;
+                end
+                // Left boundary
+                else if (next_x <= PLAY_LEFT) begin
+                    platforms_x[i]  <= PLAY_LEFT;
+                    platforms_vx[i] <= SPEED;
+                end
+                // Normal movement
+                else begin
+                    platforms_x[i] <= next_x;
+                end
+            end
+        end
+    end
+    
+    // Rendering
     always @(*) begin
         o_sprite_on = 0;
-        rom_addr = 12'd0;
-        
-        // Export ROWS into module outputs
-        o_platforms_y0 = ROWS[0];
-        o_platforms_y1 = ROWS[1];
+        rom_addr    = 12'd0;
 
-        if (i_active && in_x_range) begin
+        if (i_active) begin
             for (i = 0; i < NUM_LANES; i = i + 1) begin
-                if (pixel_y >= ROWS[i] &&
-                    pixel_y <  ROWS[i] + TILE_H)
+                if (pixel_x >= platforms_x[i] &&
+                    pixel_x <  platforms_x[i] + PLATFORM_W &&
+                    pixel_y >= platforms_y[i] &&
+                    pixel_y <  platforms_y[i] + PLATFORM_H)
                 begin
-                    rom_addr = (pixel_y - ROWS[i]) * TILE_W + tile_x;
+                    rom_addr =
+                        (pixel_y - platforms_y[i]) * PLATFORM_W +
+                        (pixel_x - platforms_x[i]);
+
                     o_sprite_on = (o_data != 8'h00);
                 end
             end
         end
+    end
+    
+    // Output platform positions
+    always @(*) begin
+        o_platforms_x0 = platforms_x[0];
+        o_platforms_y0 = platforms_y[0];
+        o_platforms_x1 = platforms_x[1];
+        o_platforms_y1 = platforms_y[1];
     end
 endmodule

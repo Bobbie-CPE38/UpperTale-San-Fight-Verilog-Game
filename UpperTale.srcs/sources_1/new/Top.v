@@ -32,7 +32,9 @@ module Top(
     
     
     // Platforms
-    wire [9:0] platforms_y0; // 2 platforms
+    wire [9:0] platforms_x0;
+    wire [9:0] platforms_y0;
+    wire [9:0] platforms_x1;
     wire [9:0] platforms_y1;
     wire platform_sprite_on;
     wire [7:0] platform_data;
@@ -49,6 +51,10 @@ module Top(
     
     // Heart hit detection
     wire heart_hit;
+    
+    // Health bar
+    wire hp_bar_sprite_on;
+    wire [7:0] hp_bar_data;
     
     // Gaster blaster
     wire [2:0] six_counter;
@@ -104,6 +110,16 @@ module Top(
         .laser_active(blaster_laser_active),
         .o_hit(heart_hit)
     );
+    
+    HealthBar hp_bar (
+        .i_pix_clk(pix_clk),
+        .i_rst(RESET),
+        .i_x(x),
+        .i_y(y),
+        .i_hit(heart_hit),
+        .o_sprite_on(hp_bar_sprite_on),
+        .o_data(hp_bar_data)
+    );
 
     GasterBlasterSprite gasterblaster_sprite (
         .i_pix_clk(pix_clk),
@@ -141,7 +157,9 @@ module Top(
         .pixel_y(y),
         .i_active(active),
         .o_sprite_on(platform_sprite_on),
+        .o_platforms_x0(platforms_x0),
         .o_platforms_y0(platforms_y0),
+        .o_platforms_x1(platforms_x1),
         .o_platforms_y1(platforms_y1),
         .o_data(platform_data)
     );
@@ -149,10 +167,12 @@ module Top(
     PlatformCollision platform_collision (
         .i_pix_clk(pix_clk),
         .i_rst(RESET),
-        .heart_x(heart_x),
-        .heart_y(heart_y),
-        .platforms_y0(platforms_y0),
-        .platforms_y1(platforms_y1),
+        .i_heart_x(heart_x),
+        .i_heart_y(heart_y),
+        .i_platforms_x0(platforms_x0),
+        .i_platforms_y0(platforms_y0),
+        .i_platforms_x1(platforms_x1),
+        .i_platforms_y1(platforms_y1),
         .o_player_on_platform(player_on_platform),
         .o_platform_y(platform_y)
     );
@@ -178,12 +198,13 @@ module Top(
     //------------------------------------------------------------
     // RENDERING PRIORITY
     // 1. Hit flash (red)
-    // 2. Gaster Blaster
-    // 3. Ground
-    // 4. Heart
-    // 5. Platform
-    // 6. Laser
-    // 7. Background
+    // 2. HP bar
+    // 3. Gaster Blaster
+    // 4. Ground
+    // 5. Heart
+    // 6. Platform
+    // 7. Laser
+    // 8. Background
     //------------------------------------------------------------
     always @ (posedge pix_clk) begin
         if (active && init_done) begin
@@ -194,6 +215,11 @@ module Top(
                 RED <= 4'hF;
                 GREEN <= 4'h0;
                 BLUE <= 4'h0;
+            end
+            else if (hp_bar_sprite_on) begin
+                RED   <= palette[hp_bar_data*3]   >> 4;
+                GREEN <= palette[hp_bar_data*3+1] >> 4;
+                BLUE  <= palette[hp_bar_data*3+2] >> 4;
             end
             else if (gaster_sprite_on) begin
                 RED   <= palette[gaster_data*3]   >> 4;

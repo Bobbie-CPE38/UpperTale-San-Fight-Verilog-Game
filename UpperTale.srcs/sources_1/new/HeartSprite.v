@@ -14,7 +14,7 @@ module HeartSprite #(
     output reg [9:0]   heart_x,        // keep 10 bits for X 
     output reg [8:0]   heart_y,        // keep 9 bits to match Top's expectation
     output reg         o_sprite_on,    // 1=on, 0=off
-    output wire [7:0]  o_data         // Sprite data
+    output wire [7:0]  o_data          // Sprite data
 );
 
     // Heart position and size
@@ -41,8 +41,8 @@ module HeartSprite #(
     localparam PLAY_BOTTOM = BOTTOM - THICK;
     
     // Movement parameters
-    localparam H_SPEED = 10; // Horizontal
-    localparam V_SPEED = 10; // Vertical
+    localparam H_SPEED = 3; // Horizontal
+    localparam V_SPEED = 5; // Vertical
     
     // Check if x, y is in heart area
     wire inside_heart = (i_x >= heart_x) && (i_x < heart_x + HEART_WIDTH) &&
@@ -92,7 +92,6 @@ module HeartSprite #(
 
     always @(posedge i_pix_clk)
         inside_heart_d <= inside_heart;
-
 
     // Calculate address for heart and draw at current position
     always @(*) begin

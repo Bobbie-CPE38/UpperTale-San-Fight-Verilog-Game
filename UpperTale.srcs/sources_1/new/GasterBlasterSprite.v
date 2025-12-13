@@ -35,35 +35,43 @@ module GasterBlasterSprite(
 
     reg [9:0] gx, gy; // Position of gaster
     reg       is_left_glance;
-
-    reg [7:0] shot_timer;
-    reg [2:0] latched_idx;
+    
+    // For ROM reading
+    reg [11:0] address;
+    reg [11:0] lx, ly; // Local sprite coordinates
     
     // Check if x, y is in head area
     wire inside_head = // Normally it should be pixel_x >= gx, but there's artifact, IDK why
-        (pixel_x > gx) && (pixel_x < gx + HEAD_H) &&
+        (pixel_x >= gx) && (pixel_x < gx + HEAD_H) &&
         (pixel_y >= gy) && (pixel_y < gy + HEAD_W);
+    reg inside_head_d; // 1 clk delay of inside_head
+                
+    // Read gaster blaster sprite
+    GasterBlasterRom g_rom (
+        .i_addr(address),
+        .i_pix_clk(i_pix_clk),
+        .o_data(o_data)
+    );
 
     //------------------------------------------------------------
-    // SPAWN & SHOT TIMER
+    // SPAWN TIMER
     //------------------------------------------------------------
     always @(posedge i_pix_clk) begin
-            case (six_counter)
-                3'd1: begin gy <= ROW1; gx <= SPAWN_LEFT;  is_left_glance <= 1'b0; end
-                3'd2: begin gy <= ROW2; gx <= SPAWN_LEFT;  is_left_glance <= 1'b0; end
-                3'd3: begin gy <= ROW3; gx <= SPAWN_LEFT;  is_left_glance <= 1'b0; end
-                3'd4: begin gy <= ROW1; gx <= SPAWN_RIGHT; is_left_glance <= 1'b1; end
-                3'd5: begin gy <= ROW2; gx <= SPAWN_RIGHT; is_left_glance <= 1'b1; end
-                3'd6: begin gy <= ROW3; gx <= SPAWN_RIGHT; is_left_glance <= 1'b1; end
-                default: begin gy <= ROW1; gx <= SPAWN_LEFT; is_left_glance <= 1'b0; end
-            endcase
+        inside_head_d <= inside_head;
+        case (six_counter)
+            3'd1: begin gy <= ROW1; gx <= SPAWN_LEFT;  is_left_glance <= 1'b0; end
+            3'd2: begin gy <= ROW2; gx <= SPAWN_LEFT;  is_left_glance <= 1'b0; end
+            3'd3: begin gy <= ROW3; gx <= SPAWN_LEFT;  is_left_glance <= 1'b0; end
+            3'd4: begin gy <= ROW1; gx <= SPAWN_RIGHT; is_left_glance <= 1'b1; end
+            3'd5: begin gy <= ROW2; gx <= SPAWN_RIGHT; is_left_glance <= 1'b1; end
+            3'd6: begin gy <= ROW3; gx <= SPAWN_RIGHT; is_left_glance <= 1'b1; end
+            default: begin gy <= ROW1; gx <= SPAWN_LEFT; is_left_glance <= 1'b0; end
+        endcase
     end
-        
+    
     //------------------------------------------------------------
     // ROM PIXEL FETCH (NO ROTATION)
     //------------------------------------------------------------
-    reg [11:0] address;
-    reg [11:0] lx, ly; // Local sprite coordinates
     always @(*) begin
         lx = pixel_x - gx;
         ly = pixel_y - gy;
@@ -79,12 +87,6 @@ module GasterBlasterSprite(
 
     // output "on/off"
     always @(*) begin
-        o_sprite_on = inside_head && o_data != 8'h00;
+        o_sprite_on = inside_head_d && o_data != 8'h00;
     end
-    
-    GasterBlasterRom g_rom (
-        .i_addr(address),
-        .i_pix_clk(i_pix_clk),
-        .o_data(o_data)
-    );
 endmodule

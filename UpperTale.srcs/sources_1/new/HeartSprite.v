@@ -5,30 +5,22 @@ module HeartSprite #(
     input  wire        i_rst,
     input  wire [9:0]  i_x,            // VGA pixel X
     input  wire [9:0]  i_y,            // VGA pixel Y
-    input  wire        i_active,
     input  wire        i_btn_l,
     input  wire        i_btn_r,
     input  wire        i_btn_u,
     input  wire        i_btn_d,
-    input  wire [9:0]  i_platforms_y0, // Y position of top platform
-    input  wire [9:0]  i_platforms_y1, // Y position of top platform
-    output wire [7:0]  o_data,         // Sprite data
+    input  wire        i_player_on_platform,
+    input  wire [9:0]  i_platform_y,
     output reg [9:0]   heart_x,        // keep 10 bits for X 
     output reg [8:0]   heart_y,        // keep 9 bits to match Top's expectation
-    output reg         o_sprite_on     // 1=on, 0=off
+    output reg         o_sprite_on,    // 1=on, 0=off
+    output wire [7:0]  o_data         // Sprite data
 );
-
-    // Heart ROM
-    reg [9:0] address; // 24x24 = 576 pixels
-    HeartRom heart_rom (
-        .i_addr(address),
-        .i_pix_clk(i_pix_clk),
-        .o_data(o_data)
-    );
 
     // Heart position and size
     localparam HEART_WIDTH  = 24;
     localparam HEART_HEIGHT = 24;
+    
     // initialize player position
     initial begin
         heart_x = 320 - HEART_WIDTH/2;
@@ -48,20 +40,23 @@ module HeartSprite #(
     localparam PLAY_TOP    = TOP    + THICK;
     localparam PLAY_BOTTOM = BOTTOM - THICK;
     
-    // Platform position 
-    reg        on_platform; // Check if player is on platform
-    reg [9:0]  platform_top; // Platform position that player is on
-    wire [9:0] i_platforms_y [0:NUM_LANES-1];
-    assign i_platforms_y[0] = i_platforms_y0;
-    assign i_platforms_y[1] = i_platforms_y1;
-
-
     // Movement parameters
     localparam H_SPEED = 10; // Horizontal
     localparam V_SPEED = 10; // Vertical
     
+    // Check if x, y is in heart area
     wire inside_heart = (i_x >= heart_x) && (i_x < heart_x + HEART_WIDTH) &&
                         (i_y >= heart_y) && (i_y < heart_y + HEART_HEIGHT);
+    reg inside_heart_d; // 1 clk delay of inside_heart
+    
+    // Heart ROM
+    reg [9:0] addr; // 24x24 = 576 pixels. 1 clk delay
+    
+    HeartRom heart_rom (
+        .i_addr(addr),
+        .i_pix_clk(i_pix_clk),
+        .o_data(o_data)
+    );
     
     integer i; // To use in for loop
     // ---------- Movement / gravity (sequential) ----------
@@ -79,38 +74,29 @@ module HeartSprite #(
     
             
             // Vertical movement
-            on_platform = 0;
             if (i_btn_u)
                 heart_y <= (heart_y >= PLAY_TOP + V_SPEED) ? heart_y - V_SPEED : PLAY_TOP;
             else if (i_btn_d)
                 heart_y <= (heart_y <= PLAY_BOTTOM - HEART_HEIGHT - V_SPEED) ? heart_y + V_SPEED : (PLAY_BOTTOM - HEART_HEIGHT);
             else begin
                 // Check if on any platform
-                platform_top = PLAY_BOTTOM - HEART_HEIGHT;
-                for (i = 0; i < NUM_LANES; i = i+1) begin
-                    if ((heart_y + HEART_HEIGHT >= i_platforms_y[i] - 3) &&
-                        (heart_y + HEART_HEIGHT <= i_platforms_y[i])) begin
-                        on_platform = 1;
-                        platform_top = i_platforms_y[i] - HEART_HEIGHT;
-                    end
-                end
-                // Set player vertical position
-                if (on_platform)
-                    heart_y <= platform_top[8:0];
-                else if (!i_btn_u && !i_btn_d && heart_y <= PLAY_BOTTOM - HEART_HEIGHT - 3)
-                    heart_y <= heart_y + 3; // gravity
-                else
-                    heart_y <= PLAY_BOTTOM - HEART_HEIGHT;
+                if (i_player_on_platform)
+                    heart_y <= i_platform_y-HEART_HEIGHT;
+                else if (heart_y <= PLAY_BOTTOM - HEART_HEIGHT - 3)
+                    heart_y <= heart_y +3; // gravity
+                else 
+                    heart_y <= PLAY_BOTTOM - HEART_HEIGHT; // ground
             end
         end
     end
 
+    always @(posedge i_pix_clk)
+        inside_heart_d <= inside_heart;
 
-    // Draw heart at current position
-    always @(posedge i_pix_clk) begin
-        if (i_active)
-            o_sprite_on = inside_heart && o_data != 8'h00;
-        else
-            o_sprite_on <= 1'b0;
+
+    // Calculate address for heart and draw at current position
+    always @(*) begin
+        addr = (i_x - heart_x) + ((i_y - heart_y) * HEART_WIDTH);
+        o_sprite_on = inside_heart_d && o_data != 8'h00;
     end
 endmodule

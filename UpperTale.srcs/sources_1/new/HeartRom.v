@@ -13,5 +13,4 @@ module HeartRom(
     
     always @(posedge i_pix_clk)
         o_data <= memory_array[i_addr];
-//            o_data <= 8;
 endmodule

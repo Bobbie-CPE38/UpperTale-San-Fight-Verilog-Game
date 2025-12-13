@@ -1,5 +1,3 @@
-`timescale 1ns / 1ps
-
 module Top(
     input wire CLK, // Onboard clock 100MHz : INPUT Pin W5
     input wire RESET, // Reset button : INPUT Pin U18
@@ -24,12 +22,13 @@ module Top(
     reg [7:0] palette [0:191];
     wire [7:0] palette_data;
     wire [7:0] palette_addr;
+    reg [7:0] palette_addr_d; // 1 clk delay of palette addr to compensate non-blocking logic
     wire palette_done;
     reg init_done;
     
     // Color define
-    reg [7:0] COL = 0; // background colour palette value
-    reg [7:0] GROUND = 63;
+    reg [7:0] BG = 0; // background colour palette value
+    reg [7:0] GROUND = 63; // Playarea border color
     
     
     // Platforms
@@ -38,11 +37,18 @@ module Top(
     wire platform_sprite_on;
     wire [7:0] platform_data;
     
+    // Platform collisions
+    wire player_on_platform;
+    wire [9:0] platform_y;
+    
     // Heart
     wire heart_sprite_on;
     wire [7:0] heart_data;
-    wire [9:0] heart_posX;
-    wire [8:0] heart_posY;
+    wire [9:0] heart_x;
+    wire [8:0] heart_y;
+    
+    // Heart hit detection
+    wire heart_hit;
     
     // Gaster blaster
     wire [2:0] six_counter;
@@ -51,7 +57,10 @@ module Top(
     wire [7:0] gaster_data;
     
     // Blaster laser
+    wire blaster_laser_active;
     wire blaster_laser_sprite_on;
+    wire [9:0] blaster_laser_x;
+    wire [9:0] blaster_laser_y;
     wire [7:0] blaster_laser_data;
     
     // Level/Ground
@@ -73,17 +82,27 @@ module Top(
         .i_rst(RESET),
         .i_x(x),
         .i_y(y),
-        .i_active(active),
         .i_btn_l(btn_l),
         .i_btn_r(btn_r),
         .i_btn_u(btn_u),
         .i_btn_d(btn_d),
-        .i_platforms_y0(platforms_y0),
-        .i_platforms_y1(platforms_y1),
+        .i_player_on_platform(player_on_platform),
+        .i_platform_y(platform_y),
         .o_data(heart_data),
-        .heart_x(heart_posX),
-        .heart_y(heart_posY),
+        .heart_x(heart_x),
+        .heart_y(heart_y),
         .o_sprite_on(heart_sprite_on)
+    );
+    
+    HeartHitDetection hhd (
+        .i_pix_clk(pix_clk),
+        .i_rst(RESET),
+        .heart_x(heart_x),
+        .heart_y(heart_y),
+        .laser_x(blaster_laser_x),
+        .laser_y(blaster_laser_y),
+        .laser_active(blaster_laser_active),
+        .o_hit(heart_hit)
     );
 
     GasterBlasterSprite gasterblaster_sprite (
@@ -91,17 +110,21 @@ module Top(
         .pixel_x(x),
         .pixel_y(y),
         .six_counter(six_counter),
-        .heart_x(heart_posX),
-        .heart_y(heart_posY),
+        .heart_x(heart_x),
+        .heart_y(heart_y),
         .o_sprite_on(gaster_sprite_on),
         .o_data(gaster_data)
     );
     
     BlasterLaserSprite blaster_laster_sprite (
         .i_pix_clk(pix_clk),
+        .i_sec_clk(clk_sec),
         .pixel_x(x),
         .pixel_y(y),
         .six_counter(six_counter),
+        .o_laser_x(blaster_laser_x),
+        .o_laser_y(blaster_laser_y),
+        .o_active(blaster_laser_active),
         .o_sprite_on(blaster_laser_sprite_on),
         .o_data(blaster_laser_data)
     );
@@ -122,6 +145,17 @@ module Top(
         .o_platforms_y1(platforms_y1),
         .o_data(platform_data)
     );
+    
+    PlatformCollision platform_collision (
+        .i_pix_clk(pix_clk),
+        .i_rst(RESET),
+        .heart_x(heart_x),
+        .heart_y(heart_y),
+        .platforms_y0(platforms_y0),
+        .platforms_y1(platforms_y1),
+        .o_player_on_platform(player_on_platform),
+        .o_platform_y(platform_y)
+    );
 
     ColorPaletteRom palette_rom (
         .i_pix_clk(pix_clk),
@@ -133,8 +167,9 @@ module Top(
 
     // Fill local palette at startup
     always @(posedge pix_clk) begin
+        palette_addr_d <= palette_addr;
         if (!init_done) begin
-            palette[palette_addr] <= palette_data;
+            palette[palette_addr_d] <= palette_data;
             if (palette_done)
                 init_done <= 1;
         end
@@ -146,57 +181,51 @@ module Top(
     // 2. Gaster Blaster
     // 3. Ground
     // 4. Heart
-    // 5. Background
+    // 5. Platform
+    // 6. Laser
+    // 7. Background
     //------------------------------------------------------------
     always @ (posedge pix_clk) begin
-        if (active) begin
-            //Debug when hit
-//            if (gaster_hit) begin
-//                RED <= 4'hF;
-//                GREEN <= 4'h0;
-//                BLUE <= 4'h0;
-//            end
-//            else 
-            if (gaster_sprite_on) begin
-//                RED   <= 15;
-//                GREEN <= 0;
-//                BLUE  <= 0;
+        if (active && init_done) begin
+//                RED   <= palette[8*3] >> 4;
+//                GREEN <= palette[8*3+1] >> 4;
+//                BLUE  <= palette[8*3+2] >> 4;
+            if (heart_hit) begin
+                RED <= 4'hF;
+                GREEN <= 4'h0;
+                BLUE <= 4'h0;
+            end
+            else if (gaster_sprite_on) begin
                 RED   <= palette[gaster_data*3]   >> 4;
                 GREEN <= palette[gaster_data*3+1] >> 4;
                 BLUE  <= palette[gaster_data*3+2] >> 4;
             end
-            else if (blaster_laser_sprite_on) begin
-                RED   <= (palette[blaster_laser_data*3])   >> 4;
-                GREEN <= (palette[blaster_laser_data*3+1]) >> 4;
-                BLUE  <= (palette[blaster_laser_data*3+2]) >> 4;
-            end
             else if (ground_sprite_on) begin
-                RED   <= 15;
-                GREEN <= 15;
-                BLUE  <= 15;
+                RED   <= palette[GROUND*3]   >> 4;
+                GREEN <= palette[GROUND*3+1] >> 4;
+                BLUE  <= palette[GROUND*3+2] >> 4;
             end
             else if (heart_sprite_on) begin
-                RED   <= (palette[8*3]) >> 4;
-                GREEN <= (palette[8*3+1]) >> 4;
-                BLUE  <= (palette[8*3+2]) >> 4;
+                RED   <= palette[heart_data*3]   >> 4;
+                GREEN <= palette[heart_data*3+1] >> 4;
+                BLUE  <= palette[heart_data*3+2] >> 4;
             end
             else if (platform_sprite_on) begin
-//                RED   <= (palette[63*3]) >> 4;
-//                GREEN <= (palette[63*3+1]) >> 4;
-//                BLUE  <= (palette[63*3+2]) >> 4;
-                RED   <= palette[platform_data*3]   >> 4;
-                GREEN <= palette[platform_data*3+1] >> 4;
-                BLUE  <= palette[platform_data*3+2] >> 4;
+                // Temp color
+                RED   <= palette[57*3]   >> 4;
+                GREEN <= palette[57*3+1] >> 4;
+                BLUE  <= palette[57*3+2] >> 4;
+            end
+            else if (blaster_laser_sprite_on) begin
+                RED   <= palette[blaster_laser_data*3]   >> 4;
+                GREEN <= palette[blaster_laser_data*3+1] >> 4;
+                BLUE  <= palette[blaster_laser_data*3+2] >> 4;
             end
             else begin
-//                RED   <= 0;
-//                GREEN <= 15;
-//                BLUE  <= 0;
-                 RED   <= palette[COL*3]   >> 4;
-                 GREEN <= palette[COL*3+1] >> 4;
-                 BLUE  <= palette[COL*3+2] >> 4;
+                 RED   <= palette[BG*3]   >> 4;
+                 GREEN <= palette[BG*3+1] >> 4;
+                 BLUE  <= palette[BG*3+2] >> 4;
             end
-
         end 
         else begin
             RED   <= 0;
@@ -208,18 +237,15 @@ module Top(
     //------------------------------------------------------------
     // Clock divider + Random gen
     //------------------------------------------------------------
-   
     clk_div_player_control cts(
         .rst_ni(RESET),
         .clk_i(CLK),
         .clk_o(clk_sec)
     );
-
     prime_random_gen random_generator (
         .clk(pix_clk),
         .rst(RESET),
         .enable(clk_sec),
         .rand_out(six_counter)
     );
-
 endmodule

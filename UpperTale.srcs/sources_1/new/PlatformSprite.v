@@ -10,22 +10,21 @@ module PlatformSprite #(
     output reg [9:0]   o_platforms_y1,
     output wire [7:0]  o_data
 );
-    
-    // --- ROM for 64x16 tile ---
-    reg  [11:0] rom_addr = 0;
-    platform_rom tile_rom (
-        .i_addr(rom_addr),
-        .i_pix_clk(i_pix_clk),
-        .o_data(o_data)
-    );
 
-    // Level bounds
+    // Map bound
     localparam LEFT   = 130;
     localparam RIGHT  = 506;
     localparam THICK  = 6;
     localparam PLAY_LEFT  = LEFT + THICK; // Left edge of playable area: 136
     localparam PLAY_RIGHT = RIGHT - THICK;  // Right edge of playable area: 504
 
+    // Tile dimension
+    localparam TILE_W = 64;
+    localparam TILE_H = 16;
+
+    // --- ROM for 64x16 tile ---
+    reg  [11:0] rom_addr = 0;
+    
     // Platforms Y positions
     reg [9:0] ROWS [0:NUM_LANES-1];
     // Init platforms Y position
@@ -34,15 +33,16 @@ module PlatformSprite #(
         ROWS[1] = 335; // Bottom platform
     end
 
-    // Tile properties
-    localparam TILE_W = 64;
-    localparam TILE_H = 16;
-
-    // --- Helpers for modulo and addressing ---
+    // Check if x position is in platform area
     wire in_x_range = (pixel_x >= PLAY_LEFT) && (pixel_x <= PLAY_RIGHT);
-
+    
     wire [6:0] tile_x = (pixel_x - PLAY_LEFT) % TILE_W;  // 0..63
-    // tile_y is computed per-lane
+
+    platform_rom tile_rom (
+        .i_addr(rom_addr),
+        .i_pix_clk(i_pix_clk),
+        .o_data(o_data)
+    );
 
     integer i; // To use in for loop
     // Output calculation

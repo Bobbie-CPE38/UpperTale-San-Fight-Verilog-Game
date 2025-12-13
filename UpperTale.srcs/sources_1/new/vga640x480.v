@@ -45,6 +45,7 @@ module vga640x480(
         // check for reset button pressed
         if (i_rst) // jump to start of a frame and reset registers
             begin
+//                counter1 <= 0;
                 H_SCAN <= 0;
                 V_SCAN <= 0;
             end

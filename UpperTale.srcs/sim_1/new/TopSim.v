@@ -82,11 +82,23 @@ module TopSim;
     assign platform_sprite_on = dut.platform_sprite_on;
         
     wire inside_heart;
+    wire [7:0]  heart_data;
     
-    assign inside_heart = dut.heart_sprite.inside_heart;
+    assign heart_data = dut.heart_data;
     
     wire [7:0] o_data;
     assign o_data = dut.heart_sprite.o_data;
+    
+    
+    wire [7:0] memory_array [0:191];
+        
+    genvar i;
+    generate
+        for (i = 0; i < 192; i = i + 1) begin : expose
+            assign memory_array[i] = dut.palette_rom.memory_array[i];
+        end
+    endgenerate
+
     
 //    wire [10-1:0] attack_i;
 //    wire [10-1:0] platform_i;

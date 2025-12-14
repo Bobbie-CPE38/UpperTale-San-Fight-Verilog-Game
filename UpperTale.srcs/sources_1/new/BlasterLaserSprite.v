@@ -43,6 +43,9 @@ module BlasterLaserSprite(
     reg i_sec_clk_d;
     wire sec_rising = i_sec_clk && ~i_sec_clk_d;
     
+    // Sync laser to global sec clk in top module
+    reg wait_first_sec;
+    
     // Laser position
     always @(posedge i_pix_clk) begin
         case (six_counter)
@@ -61,13 +64,20 @@ module BlasterLaserSprite(
     // Laser activation
     always @(posedge i_pix_clk) begin
         i_sec_clk_d <= i_sec_clk;
-        
+    
         if (i_freeze) begin
             delay_counter <= 0;
             o_active <= 0;
+            wait_first_sec <= 1;
+        end
+        else if (wait_first_sec) begin
+            o_active <= 0;
+            delay_counter <= 0;
+            if (sec_rising)
+                wait_first_sec <= 0;
         end
         else if (sec_rising) begin
-            // Start new cycle
+            // New second tick ? reset delay and deactivate laser
             delay_counter <= 0;
             o_active <= 0;
         end
@@ -77,8 +87,27 @@ module BlasterLaserSprite(
         end
         else begin
             o_active <= 1;
-            delay_counter <= LASER_DELAY; // hold the counter at max
         end
+
+//        i_sec_clk_d <= i_sec_clk;
+        
+//        if (i_freeze) begin
+//            delay_counter <= 0;
+//            o_active <= 0;
+//        end
+//        else if (sec_rising) begin
+//            // Start new cycle
+//            delay_counter <= 0;
+//            o_active <= 0;
+//        end
+//        else if (delay_counter < LASER_DELAY) begin
+//            delay_counter <= delay_counter + 1;
+//            o_active <= 0;
+//        end
+//        else begin
+//            o_active <= 1;
+//            delay_counter <= LASER_DELAY; // hold the counter at max
+//        end
     end
     
     // Draw laser blaster at current position

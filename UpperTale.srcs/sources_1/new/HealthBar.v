@@ -1,13 +1,14 @@
 module HealthBar(
-    input  wire        i_pix_clk,   // 25 MHz clk
+    input  wire        i_pix_clk,    // 25 MHz clk
     input  wire        i_rst,
-    input  wire        i_refill,    // Refill HP when returning to start state
-    input  wire [9:0]  i_x,         // VGA pixel X
-    input  wire [9:0]  i_y,         // VGA pixel Y
-    input  wire        i_hit,       // Player has been hit
-    output wire [6:0]  o_health,    // Current health
-    output reg         o_sprite_on, // 1 if x, y in healthbar area
-    output reg [7:0]   o_data       // Sprite data
+    input  wire        i_refill,     // Refill HP when returning to start state
+    input  wire [9:0]  i_x,          // VGA pixel X
+    input  wire [9:0]  i_y,          // VGA pixel Y
+    input  wire        i_hit,        // Player has been hit
+    output reg [6:0]  o_health,     // Current health
+    output reg [6:0]  o_max_health, // Max health
+    output reg         o_sprite_on,  // 1 if x, y in healthbar area
+    output reg [7:0]   o_data        // Sprite data
 );
 
     // Dimension of health bar
@@ -37,12 +38,12 @@ module HealthBar(
                           (i_y >= hp_bar_y) && (i_y < hp_bar_y + HP_BAR_H);
     reg inside_remaining_hp_d; // 1 clk delayed inside_remaining_hp
     
-    assign o_health = health;
-    
     // HP logic
     always @(posedge i_pix_clk or posedge i_rst) begin
         if (i_rst || i_refill) begin
             health <= MAX_HP;
+            o_health <= MAX_HP;
+            o_max_health <= MAX_HP;
             delay_counter <= 0;
         end
         else begin
@@ -56,6 +57,8 @@ module HealthBar(
                     health <= health - 1;
                 delay_counter <= 0; // reset counter
             end
+            
+            o_health <= health;
         end
     end
     

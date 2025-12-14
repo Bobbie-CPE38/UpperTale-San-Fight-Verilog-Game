@@ -37,4 +37,3 @@ set_property PACKAGE_PIN W19 [get_ports btn_l]
 set_property PACKAGE_PIN T17 [get_ports btn_r]
 set_property PACKAGE_PIN T18 [get_ports btn_u]
 set_property PACKAGE_PIN U17 [get_ports btn_d]
-

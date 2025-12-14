@@ -42,7 +42,17 @@ module HeartSprite #(
     
     // Movement parameters
     localparam H_SPEED = 3; // Horizontal
-    localparam V_SPEED = 5; // Vertical
+    localparam V_SPEED = 3; // Vertical
+    
+    // Improved jumping
+    localparam JUMP_H    = 55; // pixels
+    localparam HANG_TIME = 40;  // frames
+    wire on_ground = (heart_y >= PLAY_BOTTOM - HEART_HEIGHT);
+    reg jumping;
+    wire [9:0] jump_base_y = i_player_on_platform ? i_platform_y : PLAY_BOTTOM;
+    reg [9:0] jump_target;
+    reg [3:0] hang_counter;     // short pause at top
+    reg [3:0] fall_speed;       // gradual gravity
     
     // Check if x, y is in heart area
     wire inside_heart = (i_x >= heart_x) && (i_x < heart_x + HEART_WIDTH) &&
@@ -58,12 +68,10 @@ module HeartSprite #(
         .o_data(o_data)
     );
     
-    integer i; // To use in for loop
-    // ---------- Movement / gravity (sequential) ----------
+    // Horizontal movement
     always @(posedge i_pix_clk or posedge i_rst) begin
         if (i_rst) begin
             heart_x <= PLAY_LEFT + ((PLAY_RIGHT-PLAY_LEFT) - HEART_WIDTH)/2;
-            heart_y <= PLAY_TOP  + ((PLAY_BOTTOM-PLAY_TOP) - HEART_HEIGHT)/2;
         end
         else if (i_x == 639 && i_y == 479) begin
             // Horizontal movement
@@ -71,19 +79,51 @@ module HeartSprite #(
                 heart_x <= (heart_x >= PLAY_LEFT + H_SPEED) ? heart_x - H_SPEED : PLAY_LEFT;
             if (i_btn_r)
                 heart_x <= (heart_x <= PLAY_RIGHT - HEART_WIDTH - H_SPEED) ? heart_x + H_SPEED : (PLAY_RIGHT - HEART_WIDTH);
+        end
+    end
     
-            
-            // Vertical movement
-            if (i_btn_u)
-                heart_y <= (heart_y >= PLAY_TOP + V_SPEED) ? heart_y - V_SPEED : PLAY_TOP;
-            else if (i_btn_d)
+    // Vertical movement
+    always @(posedge i_pix_clk or posedge i_rst) begin
+        if (i_rst) begin
+            heart_y <= PLAY_TOP  + ((PLAY_BOTTOM-PLAY_TOP) - HEART_HEIGHT)/2;
+            jumping       <= 0;
+            hang_counter  <= 0;
+            fall_speed    <= 0;
+            jump_target   <= 0;
+        end
+        else if (i_x == 639 && i_y == 479) begin
+            if (i_btn_d) begin
                 heart_y <= (heart_y <= PLAY_BOTTOM - HEART_HEIGHT - V_SPEED) ? heart_y + V_SPEED : (PLAY_BOTTOM - HEART_HEIGHT);
+            end
+            else if (i_btn_u && (i_player_on_platform || on_ground) &&
+                     !jumping && hang_counter==0) begin
+                jumping <= 1;
+                fall_speed <= 0;
+                hang_counter <= 0;
+                jump_target <= ((jump_base_y - HEART_HEIGHT - JUMP_H) > PLAY_TOP) ?
+                                               (jump_base_y - HEART_HEIGHT - JUMP_H) : PLAY_TOP;
+            end
+            else if (jumping) begin
+                if (heart_y > jump_target && i_btn_u) begin
+                    heart_y <= heart_y - V_SPEED;
+                end
+                else begin
+                    hang_counter <= HANG_TIME;
+                    jumping <= 0;
+                end
+            end
+            else if (hang_counter > 0) begin
+                hang_counter <= hang_counter - 1;
+            end
+            else if (i_player_on_platform) begin
+                heart_y    <= i_platform_y - HEART_HEIGHT;
+                fall_speed <= 0;
+            end
             else begin
-                // Check if on any platform
-                if (i_player_on_platform)
-                    heart_y <= i_platform_y-HEART_HEIGHT;
-                else if (heart_y <= PLAY_BOTTOM - HEART_HEIGHT - 3)
-                    heart_y <= heart_y +3; // gravity
+                if (fall_speed < 3)
+                    fall_speed <= fall_speed + 1;
+                if (heart_y <= PLAY_BOTTOM - HEART_HEIGHT - fall_speed)
+                    heart_y <= heart_y + fall_speed; // gravity
                 else 
                     heart_y <= PLAY_BOTTOM - HEART_HEIGHT; // ground
             end

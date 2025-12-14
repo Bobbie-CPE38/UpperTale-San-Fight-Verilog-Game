@@ -88,26 +88,6 @@ module BlasterLaserSprite(
         else begin
             o_active <= 1;
         end
-
-//        i_sec_clk_d <= i_sec_clk;
-        
-//        if (i_freeze) begin
-//            delay_counter <= 0;
-//            o_active <= 0;
-//        end
-//        else if (sec_rising) begin
-//            // Start new cycle
-//            delay_counter <= 0;
-//            o_active <= 0;
-//        end
-//        else if (delay_counter < LASER_DELAY) begin
-//            delay_counter <= delay_counter + 1;
-//            o_active <= 0;
-//        end
-//        else begin
-//            o_active <= 1;
-//            delay_counter <= LASER_DELAY; // hold the counter at max
-//        end
     end
     
     // Draw laser blaster at current position

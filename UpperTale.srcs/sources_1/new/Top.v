@@ -31,12 +31,12 @@ module Top(
     wire freeze_hazards = !gameplay_active; // In preparation stage, freeze everything
     
     // Start image
-//    wire start_sprite_on;
-//    wire [7:0] start_data;
+    wire start_sprite_on;
+    wire [7:0] start_data;
     
     // End image
-//    wire end_sprite_on;
-//    wire [7:0] end_data;
+    wire end_sprite_on;
+    wire [7:0] end_data;
 
     // Sans
     wire sans_on;
@@ -177,24 +177,24 @@ module Top(
     );
     
     // Image during start state
-//    StartImageSprite start_sprite (
-//        .i_pix_clk(pix_clk),
-//        .i_rst(RESET),
-//        .pixel_x(x),
-//        .pixel_y(y),
-//        .o_sprite_on(start_sprite_on),
-//        .o_data(start_data)
-//    );
+    StartImageSprite start_sprite (
+        .i_pix_clk(pix_clk),
+        .i_rst(RESET),
+        .pixel_x(x),
+        .pixel_y(y),
+        .o_sprite_on(start_sprite_on),
+        .o_data(start_data)
+    );
     
     // Image during end state
-//    EndImageSprite end_sprite (
-//        .i_pix_clk(pix_clk),
-//        .i_rst(RESET),
-//        .pixel_x(x),
-//        .pixel_y(y),
-//        .o_sprite_on(end_sprite_on),
-//        .o_data(end_data)
-//    );
+    EndImageSprite end_sprite (
+        .i_pix_clk(pix_clk),
+        .i_rst(RESET),
+        .pixel_x(x),
+        .pixel_y(y),
+        .o_sprite_on(end_sprite_on),
+        .o_data(end_data)
+    );
     
     // Sans
     SansSprite sans_sprite (
@@ -635,12 +635,8 @@ module Top(
         if (active && init_done) begin
             case (state)
                 START: begin
-                    RED   <= 4'h0;
-                    GREEN <= 4'hF;
-                    BLUE  <= 4'h0;
-                    // Temp disable, took ages to load
-//                    if (start_sprite_on) set_rgb(sans_data);
-//                    else set_rgb(BG); // background
+                    if (start_sprite_on) set_rgb(start_data);
+                    else set_rgb(BG); // background
                 end
                 GAMEPLAY: begin
                     // Temp readyoverlay
@@ -653,47 +649,32 @@ module Top(
                         GREEN <= 4'h0;
                         BLUE <= 4'h0;
                     end
-                    else if (sans_on)           set_rgb(sans_data);
-                    else if (hp_decor_on)       set_rgb(hp_decor_data);
-                    else if (bottom_bar_on)     set_rgb(bottom_bar_data);
-                    else if (hp_tens_on)        set_rgb(hp_tens_data);
-                    else if (hp_ones_on)        set_rgb(hp_ones_data);
-                    else if (hp_slash_on)       set_rgb(hp_slash_data);
-                    else if (max_hp_tens_on)    set_rgb(max_hp_tens_data);
-                    else if (max_hp_ones_on)    set_rgb(max_hp_ones_data);
-                    else if (score_tens_on)     set_rgb(score_tens_data);
-                    else if (score_ones_on)     set_rgb(score_ones_data);
-                    else if (hp_bar_sprite_on)  set_rgb(hp_bar_data);
-                    else if (gaster_sprite_on)  set_rgb(gaster_data);
-                    else if (ground_sprite_on)  set_rgb(GROUND);
-                    else if (heart_sprite_on)   set_rgb(heart_data);
-                    else if (platform_sprite_on)set_rgb(57); // temp platform color
-                    else if (blaster_laser_sprite_on) set_rgb(blaster_laser_data);
+                    else if (sans_on)                   set_rgb(sans_data);
+                    else if (hp_decor_on)               set_rgb(hp_decor_data);
+                    else if (bottom_bar_on)             set_rgb(bottom_bar_data);
+                    else if (hp_tens_on)                set_rgb(hp_tens_data);
+                    else if (hp_ones_on)                set_rgb(hp_ones_data);
+                    else if (hp_slash_on)               set_rgb(hp_slash_data);
+                    else if (max_hp_tens_on)            set_rgb(max_hp_tens_data);
+                    else if (max_hp_ones_on)            set_rgb(max_hp_ones_data);
+                    else if (score_tens_on)             set_rgb(score_tens_data);
+                    else if (score_ones_on)             set_rgb(score_ones_data);
+                    else if (hp_bar_sprite_on)          set_rgb(hp_bar_data);
+                    else if (gaster_sprite_on)          set_rgb(gaster_data);
+                    else if (ground_sprite_on)          set_rgb(GROUND);
+                    else if (heart_sprite_on)           set_rgb(heart_data);
+                    else if (platform_sprite_on)        set_rgb(57); // temp platform color
+                    else if (blaster_laser_sprite_on)   set_rgb(blaster_laser_data);
                     else set_rgb(BG); // background
                 end
                 END: begin
-                    if (score_results_on) set_rgb(score_results_data);
-                    else if (best_score_tens_on) set_rgb(best_score_tens_data);
-                    else if (best_score_ones_on) set_rgb(best_score_ones_data);
-                    else if (last_score_tens_on)   set_rgb(last_score_tens_data);
-                    else if (last_score_ones_on)   set_rgb(last_score_ones_data);
-                    else begin
-//                    else set_rgb(BG); // background
-                        RED   <= 4'hF;
-                        GREEN <= 4'h0;
-                        BLUE  <= 4'hF;
-                    end
-                    // Temp disable, took ages to load
-//                    if (end_sprite_on) begin
-//                        RED   <= palette[end_data*3]   >> 4;
-//                        GREEN <= palette[end_data*3+1] >> 4;
-//                        BLUE  <= palette[end_data*3+2] >> 4;
-//                    end
-//                    else begin
-//                        RED   <= palette[BG*3]   >> 4;
-//                        GREEN <= palette[BG*3+1] >> 4;
-//                        BLUE  <= palette[BG*3+2] >> 4;
-//                    end
+                    if (score_results_on)           set_rgb(score_results_data);
+                    else if (best_score_tens_on)    set_rgb(best_score_tens_data);
+                    else if (best_score_ones_on)    set_rgb(best_score_ones_data);
+                    else if (last_score_tens_on)    set_rgb(last_score_tens_data);
+                    else if (last_score_ones_on)    set_rgb(last_score_ones_data);
+                    else if (end_sprite_on)         set_rgb(end_data);
+                    else                            set_rgb(BG); // background
                 end
             endcase
         end 

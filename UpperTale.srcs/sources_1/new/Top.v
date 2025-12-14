@@ -454,6 +454,7 @@ module Top(
     
     BlasterLaserSprite blaster_laster_sprite (
         .i_pix_clk(pix_clk),
+        .i_rst(RESET),
         .i_sec_clk(clk_sec),
         .i_freeze(freeze_hazards),
         .pixel_x(x),

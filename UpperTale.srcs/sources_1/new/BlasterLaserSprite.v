@@ -1,5 +1,6 @@
 module BlasterLaserSprite(
     input wire       i_pix_clk, // 25 MHz clk
+    input wire       i_rst,       // <<< ADD THIS
     input wire       i_sec_clk, // 1 Hz clk, use to deactivate laser
     input wire       i_freeze,  // Don't shoot during preparation state
     input wire [9:0] pixel_x,
@@ -40,8 +41,8 @@ module BlasterLaserSprite(
     reg [24:0] delay_counter;
     
     // Rising edge detector to deactivate laser
-    reg i_sec_clk_d;
-    wire sec_rising = i_sec_clk && ~i_sec_clk_d;
+    reg sec_d1, sec_d2;
+    wire sec_rising;
     
     // Sync laser to global sec clk in top module
     reg wait_first_sec;
@@ -61,32 +62,47 @@ module BlasterLaserSprite(
         o_laser_y <= bl_y;
     end
     
-    // Laser activation
-    always @(posedge i_pix_clk) begin
-        i_sec_clk_d <= i_sec_clk;
+    // Clock synchronization
+    assign sec_rising = sec_d1 & ~sec_d2;
+    always @(posedge i_pix_clk or posedge i_rst) begin
+        if (i_rst) begin
+            sec_d1 <= 0;
+            sec_d2 <= 0;
+        end else begin
+            sec_d1 <= i_sec_clk;
+            sec_d2 <= sec_d1;
+        end
+    end
     
-        if (i_freeze) begin
+    // Laser activation
+    always @(posedge i_pix_clk or posedge i_rst) begin
+        if (i_rst) begin
             delay_counter <= 0;
             o_active <= 0;
             wait_first_sec <= 1;
-        end
-        else if (wait_first_sec) begin
-            o_active <= 0;
-            delay_counter <= 0;
-            if (sec_rising)
-                wait_first_sec <= 0;
-        end
-        else if (sec_rising) begin
-            // New second tick ? reset delay and deactivate laser
-            delay_counter <= 0;
-            o_active <= 0;
-        end
-        else if (delay_counter < LASER_DELAY) begin
-            delay_counter <= delay_counter + 1;
-            o_active <= 0;
-        end
-        else begin
-            o_active <= 1;
+        end else begin
+            if (i_freeze) begin
+                delay_counter <= 0;
+                o_active <= 0;
+                wait_first_sec <= 1;
+            end
+            else if (wait_first_sec) begin
+                delay_counter <= 0;
+                o_active <= 0;
+                if (sec_rising)
+                    wait_first_sec <= 0;
+            end
+            else if (sec_rising) begin
+                delay_counter <= 0;
+                o_active <= 0;
+            end
+            else if (delay_counter < LASER_DELAY) begin
+                delay_counter <= delay_counter + 1;
+                o_active <= 0;
+            end
+            else begin
+                o_active <= 1;
+            end
         end
     end
     
